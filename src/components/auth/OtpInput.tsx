@@ -7,8 +7,7 @@ import {
   TextInput,
   useColorScheme,
   View,
-  type NativeSyntheticEvent,
-  type TextInputKeyPressEventData,
+  type TextInputKeyPressEvent,
 } from "react-native";
 
 interface OtpInputProps {
@@ -17,6 +16,7 @@ interface OtpInputProps {
   error?: string;
   onResend?: () => void;
   expirySeconds?: number;
+  onFocus?: () => void;
 }
 
 export function OtpInput({
@@ -25,6 +25,7 @@ export function OtpInput({
   error,
   onResend,
   expirySeconds = 60,
+  onFocus,
 }: OtpInputProps) {
   const isDark = useColorScheme() === "dark";
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -37,17 +38,8 @@ export function OtpInput({
       setResendActive(true);
       return;
     }
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setResendActive(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
+    const timer = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
   }, [timeLeft]);
 
   const formatTimer = (seconds: number) => {
@@ -86,10 +78,7 @@ export function OtpInput({
     }
   };
 
-  const handleKeyPress = (
-    e: NativeSyntheticEvent<TextInputKeyPressEventData>,
-    index: number,
-  ) => {
+  const handleKeyPress = (e: TextInputKeyPressEvent, index: number) => {
     if (e.nativeEvent.key === "Backspace") {
       if (!digits[index] && index > 0) {
         inputRefs.current[index - 1]?.focus();
@@ -125,7 +114,12 @@ export function OtpInput({
               value={digit}
               onChangeText={(val) => handleDigitChange(val, index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
+              onFocus={() => {
+                onFocus?.();
+              }}
               keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
               maxLength={index === 0 ? 6 : 1}
               selectTextOnFocus
               style={{

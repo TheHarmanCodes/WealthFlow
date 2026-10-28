@@ -4,7 +4,7 @@ import { z } from "zod";
  * Sign In Validation Schema
  */
 export const signInSchema = z.object({
-  identifier: z.string().min(1, "Username or email is required").trim(),
+  identifier: z.string().trim().min(1, "Username or email is required"),
   password: z.string().min(1, "Password is required"),
   rememberMe: z.boolean().default(false),
 });
@@ -15,23 +15,23 @@ export type SignInFormData = z.infer<typeof signInSchema>;
  * Step 1: Account Details Schema
  */
 export const signUpStep1Schema = z.object({
-  firstName: z.string().min(1, "First name is required").trim(),
-  lastName: z.string().min(1, "Last name is required").trim(),
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
   username: z
     .string()
+    .trim()
     .min(3, "Username must be 3-30 characters")
     .max(30, "Username must be 3-30 characters")
     .regex(
       /^[a-zA-Z0-9._-]+$/,
       "3-30 characters: letters, numbers, dots, underscores, hyphens",
-    )
-    .trim(),
+    ),
   email: z
     .string()
+    .trim()
     .min(1, "Email address is required")
     .email("Enter a valid email address")
-    .toLowerCase()
-    .trim(),
+    .toLowerCase(),
 });
 
 export type SignUpStep1FormData = z.infer<typeof signUpStep1Schema>;
@@ -145,9 +145,9 @@ export const initialSignUpState: SignUpState = {
   email: "",
   password: "",
   confirmPassword: "",
-  acceptTerms: true,
-  acceptPrivacy: true,
-  acceptCdr: true,
+  acceptTerms: false,
+  acceptPrivacy: false,
+  acceptCdr: false,
   marketingConsent: false,
   otpCode: "",
 };

@@ -1,19 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { Redirect } from "expo-router";
-import { View, ActivityIndicator } from "react-native";
 import { getMockSignedIn } from "@/lib/auth-mock";
+import { hasSeenOnboarding } from "@/lib/onboarding";
+import { Redirect } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 
-// Anchor route: when user opens the app or is signed out, sends them to onboarding.
-// If signed in, redirects to the main app (/design).
 export default function Index() {
   const [loading, setLoading] = useState(true);
-  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [target, setTarget] = useState<
+    "/design" | "/onboarding" | "/(auth)/sign-in"
+  >("/onboarding");
 
   useEffect(() => {
-    getMockSignedIn().then((signedIn) => {
-      setIsSignedIn(signedIn);
-      setLoading(false);
-    });
+    Promise.all([getMockSignedIn(), hasSeenOnboarding()]).then(
+      ([signedIn, seen]) => {
+        setTarget(
+          signedIn ? "/design" : seen ? "/(auth)/sign-in" : "/onboarding",
+        );
+        setLoading(false);
+      },
+    );
   }, []);
 
   if (loading) {
@@ -24,5 +29,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={isSignedIn ? "/design" : "/onboarding"} />;
+  return <Redirect href={target} />;
 }

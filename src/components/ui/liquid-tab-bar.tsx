@@ -1,7 +1,6 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { Home, BarChart2, Wallet, User } from "lucide-react-native";
 import { cn } from "@/lib/cn";
+import { BarChart2, Home, User, Wallet } from "lucide-react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "./text";
 
 export type TabKey = "home" | "stats" | "wallet" | "profile";
@@ -35,11 +34,7 @@ export function LiquidGlassTabBar({
   const isDark = mode === "dark";
 
   const renderIcon = (key: TabKey, isSelected: boolean) => {
-    const iconColor = isSelected
-      ? "#FFFFFF"
-      : isDark
-      ? "#9CA3AF"
-      : "#4B5563";
+    const iconColor = isSelected ? "#FFFFFF" : isDark ? "#9CA3AF" : "#4B5563";
 
     const size = 20;
 
@@ -67,7 +62,7 @@ export function LiquidGlassTabBar({
       className={cn(
         "h-16 flex-row items-center justify-between px-3 rounded-full border w-full max-w-[340px] self-center",
         modeStyles[mode],
-        className
+        className,
       )}
     >
       {defaultTabs.map((tab) => {
@@ -81,7 +76,7 @@ export function LiquidGlassTabBar({
             onPress={() => onTabChange(tab.key)}
             className={cn(
               "flex-1 items-center justify-center h-12 rounded-full active:opacity-75 transition-colors",
-              isSelected && (isDark ? "bg-[#2C2C2E]" : "bg-primary")
+              isSelected && (isDark ? "bg-[#2C2C2E]" : "bg-primary"),
             )}
           >
             {renderIcon(tab.key, isSelected)}
@@ -90,7 +85,7 @@ export function LiquidGlassTabBar({
               tone={isSelected ? "inverse" : isDark ? "subtle" : "muted"}
               className={cn(
                 "text-[11px] mt-0.5 font-jakarta-medium",
-                isSelected && "font-jakarta-semibold text-white"
+                isSelected && "font-jakarta-semibold !text-white",
               )}
             >
               {tab.label}

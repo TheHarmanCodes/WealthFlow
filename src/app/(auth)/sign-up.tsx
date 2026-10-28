@@ -9,8 +9,15 @@ import {
   Mail,
   User,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, View, useColorScheme } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+  useColorScheme,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ZodError } from "zod";
 
@@ -50,6 +57,37 @@ export default function SignUpScreen() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => {
+        setKeyboardOpen(true);
+        if (currentStep === 3) {
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setKeyboardOpen(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [currentStep]);
+
+  useEffect(() => {
+    // Scroll to top when changing steps
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentStep]);
 
   useEffect(() => {
     if (params.step) {
@@ -165,12 +203,14 @@ export default function SignUpScreen() {
     >
       <StatusBar style={isDark ? "light" : "dark"} />
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{
           paddingTop: Math.max(insets.top, 16) + 12,
-          paddingBottom: Math.max(insets.bottom, 16) + 20,
+          paddingBottom: keyboardOpen ? 140 : Math.max(insets.bottom, 16) + 20,
           paddingHorizontal: 10,
           flexGrow: 1,
-          justifyContent: "center",
+          justifyContent:
+            currentStep === 3 || keyboardOpen ? "flex-start" : "center",
         }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
@@ -541,6 +581,11 @@ export default function SignUpScreen() {
                 code={formData.otpCode}
                 onChangeCode={(val) => updateField("otpCode", val)}
                 error={errors.otpCode}
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 120);
+                }}
               />
 
               {/* Back & Complete Registration */}

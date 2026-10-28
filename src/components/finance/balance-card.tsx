@@ -38,7 +38,7 @@ export function BalanceCard({
             tone="muted"
             className={cn(
               "text-[17px] font-jakarta-medium",
-              isDark && "text-white/70",
+              isDark && "!text-white/70",
             )}
           >
             Total Balance
@@ -48,7 +48,7 @@ export function BalanceCard({
             tone="ink"
             className={cn(
               "text-[42px] font-jakarta-bold tracking-tight mt-1",
-              isDark && "text-white",
+              isDark && "!text-white",
             )}
           >
             {totalBalance}
@@ -68,7 +68,7 @@ export function BalanceCard({
                 tone="muted"
                 className={cn(
                   "text-sm font-jakarta-medium",
-                  isDark && "text-white/70",
+                  isDark && "!text-white/70",
                 )}
               >
                 Income ⌃
@@ -78,7 +78,7 @@ export function BalanceCard({
                 tone="ink"
                 className={cn(
                   "text-[20px] font-jakarta-bold tracking-tight mt-0.5",
-                  isDark && "text-white",
+                  isDark && "!text-white",
                 )}
               >
                 {incomeAmount}
@@ -97,7 +97,7 @@ export function BalanceCard({
                 tone="muted"
                 className={cn(
                   "text-sm font-jakarta-medium",
-                  isDark && "text-white/70",
+                  isDark && "!text-white/70",
                 )}
               >
                 Expense ⌄
@@ -107,7 +107,7 @@ export function BalanceCard({
                 tone="ink"
                 className={cn(
                   "text-[20px] font-jakarta-bold tracking-tight mt-0.5",
-                  isDark && "text-white",
+                  isDark && "!text-white",
                 )}
               >
                 {expenseAmount}

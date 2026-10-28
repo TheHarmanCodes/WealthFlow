@@ -1,10 +1,9 @@
-import React from "react";
+import { cn } from "@/lib/cn";
 import {
   Text as RNText,
-  type TextProps as RNTextProps,
   useColorScheme,
+  type TextProps as RNTextProps,
 } from "react-native";
-import { cn } from "@/lib/cn";
 import { tones, type Tone } from "./tones";
 
 export const textVariants = {
@@ -36,42 +35,14 @@ export function Text({
 }: TextProps) {
   const isDark = useColorScheme() === "dark";
 
-  // Semantic color adapting directly to active light / dark theme
-  const toneColor =
-    tone === "muted"
-      ? isDark
-        ? "#94A3B8"
-        : "#6B7280"
-      : tone === "subtle"
-      ? isDark
-        ? "#64748B"
-        : "#9CA3AF"
-      : tone === "inverse"
-      ? isDark
-        ? "#0B0B1A"
-        : "#FFFFFF"
-      : tone === "primary"
-      ? "#0A84FF"
-      : tone === "accent"
-      ? "#BF5AF2"
-      : tone === "success"
-      ? "#30D158"
-      : tone === "danger"
-      ? "#FF453A"
-      : tone === "warning"
-      ? "#FF9F0A"
-      : isDark
-      ? "#FFFFFF"
-      : "#0B0B1A";
-
   return (
     <RNText
       className={cn(
         textVariants[variant],
         tone ? tones[tone] : isDark ? "text-white" : "text-ink",
-        className
+        className,
       )}
-      style={[{ color: toneColor }, style]}
+      style={style}
       {...props}
     />
   );

@@ -4,63 +4,63 @@
 
 @import "nativewind/theme";
 
-/* WealthFlow design tokens. Matches airbnb-clone architecture. */
+/* WealthFlow design tokens. */
 @theme {
   /* Clear Tailwind defaults so only project tokens are active */
   --color-*: initial;
 
   /* Standard Neutrals */
-  --color-white: #FFFFFF;
+  --color-white: #ffffff;
   --color-black: #000000;
   --color-transparent: transparent;
 
   /* Slate Scale */
-  --color-slate-50: #F8FAFC;
-  --color-slate-100: #F1F5F9;
-  --color-slate-200: #E2E8F0;
-  --color-slate-300: #CBD5E1;
-  --color-slate-400: #94A3B8;
-  --color-slate-500: #64748B;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
   --color-slate-600: #475569;
   --color-slate-700: #334155;
-  --color-slate-800: #1E293B;
-  --color-slate-900: #0F172A;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
   --color-slate-950: #020617;
 
-  --color-primary: #0A84FF;
-  --color-primary-soft: #EBF5FF;
-  --color-success: #30D158;
-  --color-success-soft: #E8F9ED;
-  --color-danger: #FF453A;
-  --color-danger-soft: #FFEAEA;
-  --color-secondary: #BF5AF2;
-  --color-secondary-soft: #F6E8FF;
-  --color-warning: #FF9F0A;
-  --color-warning-soft: #FFF2E6;
+  --color-primary: #0a84ff;
+  --color-primary-soft: #ebf5ff;
+  --color-success: #30d158;
+  --color-success-soft: #e8f9ed;
+  --color-danger: #ff453a;
+  --color-danger-soft: #ffeaea;
+  --color-secondary: #bf5af2;
+  --color-secondary-soft: #f6e8ff;
+  --color-warning: #ff9f0a;
+  --color-warning-soft: #fff2e6;
 
   /* Financial Semantics */
-  --color-income: #30D158;
-  --color-income-soft: #E8F9ED;
-  --color-expense: #FF453A;
-  --color-expense-soft: #FFEAEA;
-  --color-balance: #0A84FF;
-  --color-savings: #00C7BE;
-  --color-budget: #FF9F0A;
+  --color-income: #30d158;
+  --color-income-soft: #e8f9ed;
+  --color-expense: #ff453a;
+  --color-expense-soft: #ffeaea;
+  --color-balance: #0a84ff;
+  --color-savings: #00c7be;
+  --color-budget: #ff9f0a;
 
   /* Surfaces & Neutrals */
-  --color-ink: #0B0B1A;
-  --color-ink-muted: #6B7280;
-  --color-ink-subtle: #9CA3AF;
-  --color-surface: #FFFFFF;
-  --color-surface-muted: #F4F5F7;
-  --color-surface-dark: #1C1C1E;
-  --color-border: #E5E7EB;
-  --color-input: #E5E7EB;
+  --color-ink: #0b0b1a;
+  --color-ink-muted: #6b7280;
+  --color-ink-subtle: #9ca3af;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f4f5f7;
+  --color-surface-dark: #1c1c1e;
+  --color-border: #e5e7eb;
+  --color-input: #e5e7eb;
 
   /* Apple Liquid Glass */
   --color-glass: rgba(255, 255, 255, 0.75);
   --color-glass-border: rgba(255, 255, 255, 0.85);
-  --color-glass-highlight: rgba(255, 255, 255, 0.50);
+  --color-glass-highlight: rgba(255, 255, 255, 0.5);
   --color-scrim: rgba(11, 11, 26, 0.45);
   --color-scrim-border: rgba(255, 255, 255, 0.35);
 
@@ -117,6 +117,7 @@
 
   /* Shadows */
   --shadow-*: initial;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-card: 0 2px 8px rgba(11, 11, 26, 0.05);
   --shadow-raised: 0 4px 16px rgba(11, 11, 26, 0.08);
   --shadow-glass: 0 10px 30px rgba(10, 132, 255, 0.12);

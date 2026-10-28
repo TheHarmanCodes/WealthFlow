@@ -1,28 +1,30 @@
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { ArrowRight, ChevronLeft } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  ScrollView,
+  Keyboard,
+  Platform,
   Pressable,
+  ScrollView,
+  View,
   useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { ChevronLeft, ArrowRight } from "lucide-react-native";
 import { ZodError } from "zod";
 
+import { AuthFooter } from "@/components/auth/AuthFooter";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { AuthStepper } from "@/components/auth/AuthStepper";
 import { CheckboxField } from "@/components/auth/CheckboxField";
 import { GradientButton } from "@/components/auth/GradientButton";
-import { AuthFooter } from "@/components/auth/AuthFooter";
 import { OtpInput } from "@/components/auth/OtpInput";
 import { Text } from "@/components/ui/text";
+import { setMockSignedIn } from "@/lib/auth-mock";
 import {
   signUpStep3Schema,
   type SignUpStep3FormData,
 } from "@/lib/auth-validation";
-import { setMockSignedIn } from "@/lib/auth-mock";
 
 export default function VerifyScreen() {
   const router = useRouter();
@@ -42,10 +44,34 @@ export default function VerifyScreen() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => {
+        setKeyboardOpen(true);
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setKeyboardOpen(false);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const updateField = (
     field: keyof SignUpStep3FormData,
-    value: string | boolean
+    value: string | boolean,
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -89,12 +115,13 @@ export default function VerifyScreen() {
     >
       <StatusBar style={isDark ? "light" : "dark"} />
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{
           paddingTop: Math.max(insets.top, 16) + 12,
-          paddingBottom: Math.max(insets.bottom, 16) + 20,
+          paddingBottom: keyboardOpen ? 140 : Math.max(insets.bottom, 16) + 20,
           paddingHorizontal: 16,
           flexGrow: 1,
-          justifyContent: "center",
+          justifyContent: keyboardOpen ? "flex-start" : "center",
         }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
@@ -142,7 +169,10 @@ export default function VerifyScreen() {
                   className="text-xs sm:text-sm font-jakarta"
                 >
                   I accept the{" "}
-                  <Text style={{ color: "#38BDF8" }} className="font-jakarta-medium">
+                  <Text
+                    style={{ color: "#38BDF8" }}
+                    className="font-jakarta-medium"
+                  >
                     Terms of Service
                   </Text>{" "}
                   <Text style={{ color: "#EF4444" }}>*</Text>
@@ -162,7 +192,10 @@ export default function VerifyScreen() {
                   className="text-xs sm:text-sm font-jakarta"
                 >
                   I accept the{" "}
-                  <Text style={{ color: "#38BDF8" }} className="font-jakarta-medium">
+                  <Text
+                    style={{ color: "#38BDF8" }}
+                    className="font-jakarta-medium"
+                  >
                     Privacy Policy
                   </Text>{" "}
                   and acknowledge the collection and processing of my personal
@@ -184,7 +217,10 @@ export default function VerifyScreen() {
                 >
                   I consent to the collection, use, and disclosure of my
                   financial data in accordance with the{" "}
-                  <Text style={{ color: "#38BDF8" }} className="font-jakarta-medium">
+                  <Text
+                    style={{ color: "#38BDF8" }}
+                    className="font-jakarta-medium"
+                  >
                     Consumer Data Right (CDR)
                   </Text>{" "}
                   framework and Privacy Act 1988{" "}
@@ -230,6 +266,11 @@ export default function VerifyScreen() {
               code={formData.otpCode}
               onChangeCode={(val) => updateField("otpCode", val)}
               error={errors.otpCode}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 120);
+              }}
             />
 
             {/* Back & Complete Registration */}
@@ -240,10 +281,7 @@ export default function VerifyScreen() {
                 onPress={() => router.back()}
                 className="flex-row items-center py-2 px-2.5 active:opacity-60"
               >
-                <ChevronLeft
-                  size={18}
-                  color={isDark ? "#94A3B8" : "#64748B"}
-                />
+                <ChevronLeft size={18} color={isDark ? "#94A3B8" : "#64748B"} />
                 <Text
                   style={{ color: isDark ? "#94A3B8" : "#64748B" }}
                   className="text-sm font-jakarta-semibold ml-1"

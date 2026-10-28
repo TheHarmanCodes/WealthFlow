@@ -1,7 +1,12 @@
 import { cn } from "@/lib/cn";
-import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
+import {
+  GlassView as RNGlassView,
+  isGlassEffectAPIAvailable,
+} from "expo-glass-effect";
+import { styled } from "nativewind";
 import React from "react";
 import { View, type ViewProps } from "react-native";
+const GlassView = styled(RNGlassView, { className: "style" });
 
 export interface GlassCardProps extends ViewProps {
   className?: string;

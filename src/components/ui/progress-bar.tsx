@@ -1,6 +1,5 @@
-import React from "react";
-import { View } from "react-native";
 import { cn } from "@/lib/cn";
+import { View } from "react-native";
 import { Text } from "./text";
 
 export interface ProgressBarProps {
@@ -22,10 +21,7 @@ export function ProgressBar({
   rightLabel,
   className,
 }: ProgressBarProps) {
-  const normalizedProgress = Math.min(
-    100,
-    Math.max(0, progress <= 1 ? progress * 100 : progress)
-  );
+  const normalizedProgress = Math.min(100, Math.max(0, progress));
 
   return (
     <View className={cn("w-full gap-1.5", className)}>
