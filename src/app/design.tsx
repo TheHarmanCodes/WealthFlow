@@ -38,22 +38,37 @@ import {
 import { BalanceCard } from "@/components/finance/balance-card";
 import { TransactionItem } from "@/components/finance/transaction-item";
 
-import { useRouter } from "expo-router";
-import { setMockSignedIn } from "@/lib/auth-mock";
-import { resetOnboarding } from "@/lib/onboarding";
+import { Redirect, useRouter } from "expo-router";
+import { useAuth, useClerk, useUser } from "@clerk/expo";
 
 export default function DesignSystemScreen() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+
   const [selectedPeriod, setSelectedPeriod] = useState<string>("Weekly");
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [tabBarMode, setTabBarMode] = useState<TabBarMode>("floating");
   const [searchValue, setSearchValue] = useState("");
   const [amountValue, setAmountValue] = useState("");
 
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
   const handleLogout = async () => {
-    await setMockSignedIn(false);
-    await resetOnboarding();
-    router.replace("/onboarding");
+    try {
+      await signOut();
+      router.replace("/(auth)/sign-in");
+    } catch (e) {
+      console.warn("Sign out error:", e);
+      router.replace("/(auth)/sign-in");
+    }
   };
 
   const periodOptions = [
@@ -80,10 +95,10 @@ export default function DesignSystemScreen() {
         <View className="flex-row items-center justify-between bg-white p-3.5 rounded-2xl border border-border">
           <View>
             <Text variant="caption" tone="muted" className="font-jakarta-medium text-[11px] uppercase tracking-wider">
-              Route: /design
+              {user?.primaryEmailAddress?.emailAddress || user?.username || "Route: /design"}
             </Text>
             <Text variant="title" tone="ink" className="font-jakarta-bold text-[16px]">
-              Design System Screen
+              {user?.fullName || user?.username || "Design System Screen"}
             </Text>
           </View>
           <Button
@@ -92,7 +107,7 @@ export default function DesignSystemScreen() {
             size="sm"
             onPress={handleLogout}
             icon={<LogOut size={15} color="#0A84FF" />}
-            accessibilityLabel="Log out to onboarding"
+            accessibilityLabel="Log out to sign in"
           />
         </View>
 

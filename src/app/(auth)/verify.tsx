@@ -1,3 +1,4 @@
+import { useSignUp } from "@clerk/expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ArrowRight, ChevronLeft } from "lucide-react-native";
@@ -20,7 +21,7 @@ import { CheckboxField } from "@/components/auth/CheckboxField";
 import { GradientButton } from "@/components/auth/GradientButton";
 import { OtpInput } from "@/components/auth/OtpInput";
 import { Text } from "@/components/ui/text";
-import { setMockSignedIn } from "@/lib/auth-mock";
+import { getClerkErrorMessage } from "@/lib/clerk-error";
 import {
   signUpStep3Schema,
   type SignUpStep3FormData,
@@ -32,17 +33,19 @@ export default function VerifyScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
   const isDark = useColorScheme() === "dark";
 
+  const { signUp, errors: clerkErrors, fetchStatus } = useSignUp();
+
   const email = params.email || "you@example.com";
 
   const [formData, setFormData] = useState<SignUpStep3FormData>({
     acceptTerms: true,
     acceptPrivacy: true,
-    acceptCdr: true,
     marketingConsent: false,
     otpCode: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -81,17 +84,59 @@ export default function VerifyScreen() {
         return next;
       });
     }
+    if (generalError) {
+      setGeneralError(null);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      setGeneralError(null);
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) {
+        setGeneralError(
+          getClerkErrorMessage(
+            error,
+            "Could not resend code. Please wait a moment.",
+          ),
+        );
+      }
+    } catch {
+      setGeneralError("Could not resend code. Please try again.");
+    }
   };
 
   const handleComplete = async () => {
     try {
       setErrors({});
+      setGeneralError(null);
       signUpStep3Schema.parse(formData);
 
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      await setMockSignedIn(true);
-      router.replace("/design");
+
+      const { error } = await signUp.verifications.verifyEmailCode({
+        code: formData.otpCode,
+      });
+
+      if (error) {
+        setGeneralError(
+          getClerkErrorMessage(
+            error,
+            "Invalid or expired verification code.",
+          ),
+        );
+        return;
+      }
+
+      if (signUp.status === "complete") {
+        await signUp.finalize({
+          navigate: () => {
+            router.replace("/design");
+          },
+        });
+      } else {
+        setGeneralError(`Verification status: ${signUp.status}`);
+      }
     } catch (err) {
       if (err instanceof ZodError) {
         const newErrors: Record<string, string> = {};
@@ -102,11 +147,15 @@ export default function VerifyScreen() {
           }
         });
         setErrors(newErrors);
+      } else {
+        setGeneralError("Verification failed. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   };
+
+  const isFetching = loading || fetchStatus === "fetching";
 
   return (
     <View
@@ -119,9 +168,9 @@ export default function VerifyScreen() {
         contentContainerStyle={{
           paddingTop: Math.max(insets.top, 16) + 12,
           paddingBottom: keyboardOpen ? 140 : Math.max(insets.bottom, 16) + 20,
-          paddingHorizontal: 16,
+          paddingHorizontal: 10,
           flexGrow: 1,
-          justifyContent: keyboardOpen ? "flex-start" : "center",
+          justifyContent: "center",
         }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
@@ -138,7 +187,7 @@ export default function VerifyScreen() {
             shadowRadius: 20,
             elevation: 6,
           }}
-          className="w-full max-w-[460px] self-center p-5 sm:p-7 rounded-3xl border will-change-variable"
+          className="w-full max-w-[460px] self-center p-4 sm:p-7 rounded-2xl border will-change-variable"
         >
           {/* Header */}
           <AuthHeader
@@ -146,10 +195,20 @@ export default function VerifyScreen() {
             subtitle={`Review agreements and enter the security code sent to ${email}`}
           />
 
-          {/* Stepper */}
+          {generalError && (
+            <View className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <Text className="text-red-500 text-xs font-jakarta text-center">
+                {generalError}
+              </Text>
+            </View>
+          )}
+
+          {/* Stepper showing step 3 active */}
           <AuthStepper currentStep={3} />
 
           <View className="mt-1">
+            <View nativeID="clerk-captcha" />
+
             <Text
               style={{ color: isDark ? "#94A3B8" : "#64748B" }}
               className="text-xs font-jakarta-bold tracking-wider mb-3 uppercase"
@@ -171,7 +230,7 @@ export default function VerifyScreen() {
                   I accept the{" "}
                   <Text
                     style={{ color: "#38BDF8" }}
-                    className="font-jakarta-medium"
+                    className="font-jakarta-medium text-sm"
                   >
                     Terms of Service
                   </Text>{" "}
@@ -194,37 +253,12 @@ export default function VerifyScreen() {
                   I accept the{" "}
                   <Text
                     style={{ color: "#38BDF8" }}
-                    className="font-jakarta-medium"
+                    className="font-jakarta-medium text-sm"
                   >
                     Privacy Policy
                   </Text>{" "}
                   and acknowledge the collection and processing of my personal
                   data <Text style={{ color: "#EF4444" }}>*</Text>
-                </Text>
-              }
-            />
-
-            {/* CDR Checkbox */}
-            <CheckboxField
-              variant="boxed"
-              checked={formData.acceptCdr}
-              onCheckedChange={(val) => updateField("acceptCdr", val)}
-              error={errors.acceptCdr}
-              label={
-                <Text
-                  style={{ color: isDark ? "#E2E8F0" : "#1E293B" }}
-                  className="text-xs sm:text-sm font-jakarta leading-relaxed"
-                >
-                  I consent to the collection, use, and disclosure of my
-                  financial data in accordance with the{" "}
-                  <Text
-                    style={{ color: "#38BDF8" }}
-                    className="font-jakarta-medium"
-                  >
-                    Consumer Data Right (CDR)
-                  </Text>{" "}
-                  framework and Privacy Act 1988{" "}
-                  <Text style={{ color: "#EF4444" }}>*</Text>
                 </Text>
               }
             />
@@ -261,11 +295,18 @@ export default function VerifyScreen() {
               through your account settings.
             </Text>
 
+            <View
+              style={{ backgroundColor: isDark ? "#1E293B" : "#E2E8F0" }}
+              className="flex-1 h-[1px] w-full"
+            />
+
             {/* OTP Code */}
             <OtpInput
               code={formData.otpCode}
               onChangeCode={(val) => updateField("otpCode", val)}
-              error={errors.otpCode}
+              error={errors.otpCode || clerkErrors.fields?.code?.message}
+              onResend={handleResend}
+              cooldownSeconds={60}
               onFocus={() => {
                 setTimeout(() => {
                   scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -277,11 +318,14 @@ export default function VerifyScreen() {
             <View className="flex-row items-center gap-2.5 mt-3 mb-2">
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Back to Sign Up"
-                onPress={() => router.back()}
+                accessibilityLabel="Back to sign up"
+                onPress={() => router.replace("/(auth)/sign-up")}
                 className="flex-row items-center py-2 px-2.5 active:opacity-60"
               >
-                <ChevronLeft size={18} color={isDark ? "#94A3B8" : "#64748B"} />
+                <ChevronLeft
+                  size={18}
+                  color={isDark ? "#94A3B8" : "#64748B"}
+                />
                 <Text
                   style={{ color: isDark ? "#94A3B8" : "#64748B" }}
                   className="text-sm font-jakarta-semibold ml-1"
@@ -295,7 +339,7 @@ export default function VerifyScreen() {
                 size="lg"
                 icon={<ArrowRight size={18} color="#FFFFFF" />}
                 iconPosition="right"
-                loading={loading}
+                loading={isFetching}
                 onPress={handleComplete}
                 className="flex-1 rounded-2xl"
               />

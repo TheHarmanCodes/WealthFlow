@@ -1,3 +1,4 @@
+import { useSignUp, useSSO } from "@clerk/expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -30,7 +31,7 @@ import { CheckboxField } from "@/components/auth/CheckboxField";
 import { GradientButton } from "@/components/auth/GradientButton";
 import { OtpInput } from "@/components/auth/OtpInput";
 import { Text } from "@/components/ui/text";
-import { setMockSignedIn } from "@/lib/auth-mock";
+import { getClerkErrorMessage } from "@/lib/clerk-error";
 import {
   PASSWORD_RULES,
   initialSignUpState,
@@ -49,13 +50,21 @@ export default function SignUpScreen() {
   const params = useLocalSearchParams<{ step?: string; email?: string }>();
   const isDark = useColorScheme() === "dark";
 
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const { signUp, errors: clerkErrors, fetchStatus } = useSignUp();
+  const { startSSOFlow } = useSSO();
+
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(() => {
+    const s = params.step ? parseInt(params.step, 10) : 1;
+    return s === 2 || s === 3 ? (s as 1 | 2 | 3) : 1;
+  });
+
   const [formData, setFormData] = useState<SignUpState>({
     ...initialSignUpState,
     email: params.email || "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -70,13 +79,13 @@ export default function SignUpScreen() {
             scrollViewRef.current?.scrollToEnd({ animated: true });
           }, 100);
         }
-      }
+      },
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
       () => {
         setKeyboardOpen(false);
-      }
+      },
     );
     return () => {
       showSub.remove();
@@ -89,15 +98,6 @@ export default function SignUpScreen() {
     scrollViewRef.current?.scrollTo({ y: 0, animated: false });
   }, [currentStep]);
 
-  useEffect(() => {
-    if (params.step) {
-      const stepNum = parseInt(params.step, 10);
-      if (stepNum === 1 || stepNum === 2 || stepNum === 3) {
-        setCurrentStep(stepNum);
-      }
-    }
-  }, [params.step]);
-
   const updateField = (field: keyof SignUpState, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -107,12 +107,16 @@ export default function SignUpScreen() {
         return next;
       });
     }
+    if (generalError) {
+      setGeneralError(null);
+    }
   };
 
   // Step 1 Validation & Proceed
   const handleStep1Next = () => {
     try {
       setErrors({});
+      setGeneralError(null);
       signUpStep1Schema.parse({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -134,14 +138,50 @@ export default function SignUpScreen() {
     }
   };
 
-  // Step 2 Validation & Proceed
-  const handleStep2Next = () => {
+  // Step 2 Validation & Proceed to Clerk Registration
+  const handleStep2Next = async () => {
     try {
       setErrors({});
+      setGeneralError(null);
       signUpStep2Schema.parse({
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       });
+
+      setLoading(true);
+
+      // Create sign-up attempt with Clerk
+      const { error } = await signUp.password({
+        emailAddress: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        username: formData.username.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+      });
+
+      if (error) {
+        setGeneralError(
+          getClerkErrorMessage(
+            error,
+            "Unable to create account. Please check your details.",
+          ),
+        );
+        return;
+      }
+
+      // Send 6-digit email verification code
+      const { error: sendCodeError } =
+        await signUp.verifications.sendEmailCode();
+
+      if (sendCodeError) {
+        setGeneralError(
+          getClerkErrorMessage(
+            sendCodeError,
+            "Account created, but failed to send verification code. Please resend.",
+          ),
+        );
+      }
+
       setCurrentStep(3);
     } catch (err) {
       if (err instanceof ZodError) {
@@ -153,7 +193,29 @@ export default function SignUpScreen() {
           }
         });
         setErrors(newErrors);
+      } else {
+        setGeneralError("An unexpected error occurred. Please try again.");
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend code in Step 3
+  const handleResendCode = async () => {
+    try {
+      setGeneralError(null);
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) {
+        setGeneralError(
+          getClerkErrorMessage(
+            error,
+            "Could not resend code. Please wait a moment.",
+          ),
+        );
+      }
+    } catch {
+      setGeneralError("Could not resend code. Please try again.");
     }
   };
 
@@ -161,18 +223,39 @@ export default function SignUpScreen() {
   const handleStep3Complete = async () => {
     try {
       setErrors({});
+      setGeneralError(null);
       signUpStep3Schema.parse({
         acceptTerms: formData.acceptTerms,
         acceptPrivacy: formData.acceptPrivacy,
-        acceptCdr: formData.acceptCdr,
         marketingConsent: formData.marketingConsent,
         otpCode: formData.otpCode,
       });
 
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      await setMockSignedIn(true);
-      router.replace("/design");
+
+      const { error } = await signUp.verifications.verifyEmailCode({
+        code: formData.otpCode,
+      });
+
+      if (error) {
+        setGeneralError(
+          getClerkErrorMessage(
+            error,
+            "Invalid or expired verification code.",
+          ),
+        );
+        return;
+      }
+
+      if (signUp.status === "complete") {
+        await signUp.finalize({
+          navigate: () => {
+            router.replace("/design");
+          },
+        });
+      } else {
+        setGeneralError(`Verification status: ${signUp.status}. Additional steps may be required.`);
+      }
     } catch (err) {
       if (err instanceof ZodError) {
         const newErrors: Record<string, string> = {};
@@ -183,6 +266,8 @@ export default function SignUpScreen() {
           }
         });
         setErrors(newErrors);
+      } else {
+        setGeneralError("Verification failed. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -190,11 +275,27 @@ export default function SignUpScreen() {
   };
 
   const handleSocialAuth = async (provider: "Google" | "Apple") => {
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await setMockSignedIn(true);
-    router.replace("/design");
+    try {
+      setGeneralError(null);
+      setLoading(true);
+      const strategy = provider === "Google" ? "oauth_google" : "oauth_apple";
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy,
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace("/design");
+      }
+    } catch (err: any) {
+      console.warn(`[SSO] ${provider} error:`, err);
+      setGeneralError(`Unable to complete ${provider} sign-up. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const isFetching = loading || fetchStatus === "fetching";
 
   return (
     <View
@@ -244,6 +345,14 @@ export default function SignUpScreen() {
             }
           />
 
+          {generalError && (
+            <View className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <Text className="text-red-500 text-xs font-jakarta text-center">
+                {generalError}
+              </Text>
+            </View>
+          )}
+
           {/* Stepper */}
           {currentStep !== 3 && <AuthStepper currentStep={currentStep} />}
 
@@ -255,7 +364,7 @@ export default function SignUpScreen() {
               <View className="mb-3.5 w-full">
                 <Text
                   style={{ color: isDark ? "#FFFFFF" : "#0B0B1A" }}
-                  className="text-base text-center  sm:text-lg font-jakarta-bold"
+                  className="text-base text-center sm:text-lg font-jakarta-bold"
                 >
                   Let&apos;s create your account
                 </Text>
@@ -275,7 +384,7 @@ export default function SignUpScreen() {
                     placeholder="John"
                     value={formData.firstName}
                     onChangeText={(val) => updateField("firstName", val)}
-                    error={errors.firstName}
+                    error={errors.firstName || clerkErrors.fields?.firstName?.message}
                   />
                 </View>
                 <View className="flex-1">
@@ -284,7 +393,7 @@ export default function SignUpScreen() {
                     placeholder="Doe"
                     value={formData.lastName}
                     onChangeText={(val) => updateField("lastName", val)}
-                    error={errors.lastName}
+                    error={errors.lastName || clerkErrors.fields?.lastName?.message}
                   />
                 </View>
               </View>
@@ -301,7 +410,7 @@ export default function SignUpScreen() {
                 helperText="3-30 characters: letters, numbers, dots, underscores, hyphens"
                 autoCapitalize="none"
                 autoCorrect={false}
-                error={errors.username}
+                error={errors.username || clerkErrors.fields?.username?.message}
               />
 
               {/* Email Address */}
@@ -316,7 +425,7 @@ export default function SignUpScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                error={errors.email}
+                error={errors.email || clerkErrors.fields?.emailAddress?.message}
               />
 
               {/* Social Login Buttons */}
@@ -374,22 +483,22 @@ export default function SignUpScreen() {
                   <Lock size={18} color={isDark ? "#94A3B8" : "#64748B"} />
                 }
                 autoCapitalize="none"
-                error={errors.password}
+                error={errors.password || clerkErrors.fields?.password?.message}
               />
 
-              {/* Password Requirements Checklist Card */}
+              {/* Password Requirements Checklist Card (8+ chars) */}
               <View
                 style={{
-                  backgroundColor: isDark ? "#090D1A" : "#F8FAFC",
+                  backgroundColor: isDark ? "#0A0F1D" : "#F8FAFC",
                   borderColor: isDark ? "#1E293B" : "#E2E8F0",
                 }}
-                className="p-3.5 sm:p-4 rounded-2xl border mb-3.5"
+                className="p-3 rounded-xl border mb-3.5 mt-0.5"
               >
                 <Text
-                  style={{ color: isDark ? "#94A3B8" : "#475569" }}
-                  className="text-xs font-jakarta-semibold mb-2.5"
+                  style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+                  className="text-xs font-jakarta-bold mb-2 uppercase tracking-wide"
                 >
-                  Password must contain:
+                  Password Requirements
                 </Text>
 
                 <View className="flex-row flex-wrap">
@@ -470,6 +579,7 @@ export default function SignUpScreen() {
                   size="md"
                   icon={<ChevronRight size={18} color="#FFFFFF" />}
                   iconPosition="right"
+                  loading={isFetching}
                   onPress={handleStep2Next}
                   className="min-w-[120px] rounded-2xl"
                 />
@@ -485,6 +595,9 @@ export default function SignUpScreen() {
           {/* ============================================================ */}
           {currentStep === 3 && (
             <View className="mt-1">
+              {/* Bot Protection mount point */}
+              <View nativeID="clerk-captcha" />
+
               <Text
                 style={{ color: isDark ? "#94A3B8" : "#64748B" }}
                 className="text-xs font-jakarta-bold tracking-wider mb-3 uppercase"
@@ -554,7 +667,7 @@ export default function SignUpScreen() {
                 label={
                   <Text
                     style={{ color: isDark ? "#94A3B8" : "#475569" }}
-                    className="text-xs sm:text-sm font-jakarta leading-relaxed "
+                    className="text-xs sm:text-sm font-jakarta leading-relaxed"
                   >
                     I would like to receive marketing communications and product
                     updates from WealthFlow
@@ -573,14 +686,16 @@ export default function SignUpScreen() {
 
               <View
                 style={{ backgroundColor: isDark ? "#1E293B" : "#E2E8F0" }}
-                className=" flex-1 h-[1px] w-full"
+                className="flex-1 h-[1px] w-full"
               />
 
               {/* OTP Code */}
               <OtpInput
                 code={formData.otpCode}
                 onChangeCode={(val) => updateField("otpCode", val)}
-                error={errors.otpCode}
+                error={errors.otpCode || clerkErrors.fields?.code?.message}
+                onResend={handleResendCode}
+                cooldownSeconds={60}
                 onFocus={() => {
                   setTimeout(() => {
                     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -613,7 +728,7 @@ export default function SignUpScreen() {
                   size="lg"
                   icon={<ArrowRight size={18} color="#FFFFFF" />}
                   iconPosition="right"
-                  loading={loading}
+                  loading={isFetching}
                   onPress={handleStep3Complete}
                   className="flex-1 rounded-2xl"
                 />

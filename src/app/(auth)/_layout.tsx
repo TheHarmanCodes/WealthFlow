@@ -1,8 +1,14 @@
-import { Stack } from "expo-router";
+import { useAuth } from "@clerk/expo";
+import { Redirect, Stack } from "expo-router";
 import { useColorScheme } from "react-native";
 
 export default function AuthLayout() {
   const isDark = useColorScheme() === "dark";
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (isLoaded && isSignedIn) {
+    return <Redirect href="/design" />;
+  }
 
   return (
     <Stack
@@ -16,6 +22,7 @@ export default function AuthLayout() {
     >
       <Stack.Screen name="sign-in" />
       <Stack.Screen name="sign-up" />
+      <Stack.Screen name="forgot-password" />
       <Stack.Screen name="verify" />
     </Stack>
   );

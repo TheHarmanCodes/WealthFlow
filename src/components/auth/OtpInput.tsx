@@ -15,7 +15,7 @@ interface OtpInputProps {
   onChangeCode: (code: string) => void;
   error?: string;
   onResend?: () => void;
-  expirySeconds?: number;
+  cooldownSeconds?: number;
   onFocus?: () => void;
 }
 
@@ -24,21 +24,24 @@ export function OtpInput({
   onChangeCode,
   error,
   onResend,
-  expirySeconds = 60,
+  cooldownSeconds = 60,
   onFocus,
 }: OtpInputProps) {
   const isDark = useColorScheme() === "dark";
   const inputRefs = useRef<(TextInput | null)[]>([]);
-  const [timeLeft, setTimeLeft] = useState(expirySeconds);
-  const [resendActive, setResendActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(cooldownSeconds);
 
-  // Timer countdown
+  // Derive resend eligibility from timer state to avoid cascading effect renders
+  const canResend = timeLeft <= 0;
+
+  // Countdown timer for resend cooldown
   useEffect(() => {
     if (timeLeft <= 0) {
-      setResendActive(true);
       return;
     }
-    const timer = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
+    const timer = setTimeout(() => {
+      setTimeLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
     return () => clearTimeout(timer);
   }, [timeLeft]);
 
@@ -51,8 +54,8 @@ export function OtpInput({
   };
 
   const handleResend = () => {
-    setTimeLeft(expirySeconds);
-    setResendActive(false);
+    if (!canResend) return;
+    setTimeLeft(cooldownSeconds);
     onResend?.();
   };
 
@@ -91,12 +94,20 @@ export function OtpInput({
 
   return (
     <View className="w-full my-3">
-      <Text
-        style={{ color: isDark ? "#94A3B8" : "#64748B" }}
-        className="text-xs font-jakarta-bold tracking-wider mb-3.5 uppercase font-bold"
-      >
-        Enter 6-Digit Security Code
-      </Text>
+      <View className="flex-row items-center justify-between mb-3.5">
+        <Text
+          style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+          className="text-xs font-jakarta-bold tracking-wider uppercase"
+        >
+          Enter 6-Digit Security Code
+        </Text>
+        <Text
+          style={{ color: isDark ? "#64748B" : "#94A3B8" }}
+          className="text-[11px] font-jakarta"
+        >
+          Valid for 10 min
+        </Text>
+      </View>
 
       {/* 6 Digit Inputs */}
       <View className="flex-row items-center justify-between gap-2 sm:gap-2.5 mb-3.5">
@@ -160,13 +171,19 @@ export function OtpInput({
             style={{ color: isDark ? "#94A3B8" : "#64748B" }}
             className="text-xs font-jakarta"
           >
-            Code expires in:{" "}
-            <Text
-              style={{ color: "#38BDF8" }}
-              className="font-jakarta-bold text-sm"
-            >
-              {formatTimer(timeLeft)}
-            </Text>
+            {canResend ? (
+              "Didn't receive code?"
+            ) : (
+              <>
+                Resend available in:{" "}
+                <Text
+                  style={{ color: "#38BDF8" }}
+                  className="font-jakarta-bold text-sm"
+                >
+                  {formatTimer(timeLeft)}
+                </Text>
+              </>
+            )}
           </Text>
         </View>
 
@@ -174,12 +191,12 @@ export function OtpInput({
           accessibilityRole="button"
           accessibilityLabel="Resend security code"
           onPress={handleResend}
-          disabled={!resendActive}
+          disabled={!canResend}
           className="active:opacity-60"
         >
           <Text
             style={{
-              color: resendActive ? "#38BDF8" : isDark ? "#475569" : "#94A3B8",
+              color: canResend ? "#38BDF8" : isDark ? "#475569" : "#94A3B8",
             }}
             className="text-xs font-jakarta-semibold"
           >

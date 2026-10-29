@@ -48,8 +48,8 @@ export interface PasswordRule {
 export const PASSWORD_RULES: PasswordRule[] = [
   {
     id: "length",
-    label: "At least 12 characters",
-    validate: (p) => p.length >= 12,
+    label: "At least 8 characters",
+    validate: (p) => p.length >= 8,
   },
   {
     id: "uppercase",
@@ -85,7 +85,7 @@ export const signUpStep2Schema = z
   .object({
     password: z
       .string()
-      .min(12, "Password must be at least 12 characters")
+      .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "One uppercase letter required")
       .regex(/[a-z]/, "One lowercase letter required")
       .regex(/[0-9]/, "One number required")
@@ -100,6 +100,45 @@ export const signUpStep2Schema = z
 export type SignUpStep2FormData = z.infer<typeof signUpStep2Schema>;
 
 /**
+ * Forgot Password Step 1: Request Reset Code
+ */
+export const forgotPasswordStep1Schema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email address is required")
+    .email("Enter a valid email address")
+    .toLowerCase(),
+});
+
+export type ForgotPasswordStep1Data = z.infer<typeof forgotPasswordStep1Schema>;
+
+/**
+ * Forgot Password Step 2: Verify Code and Set New Password
+ */
+export const forgotPasswordStep2Schema = z
+  .object({
+    otpCode: z
+      .string()
+      .length(6, "Please enter all 6 digits of the recovery code")
+      .regex(/^\d{6}$/, "Code must be 6 digits"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "One uppercase letter required")
+      .regex(/[a-z]/, "One lowercase letter required")
+      .regex(/[0-9]/, "One number required")
+      .regex(/[!@#$%^&*(),.?":{}|<>]/, "One special character required"),
+    confirmPassword: z.string().min(1, "Confirm password is required"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ForgotPasswordStep2Data = z.infer<typeof forgotPasswordStep2Schema>;
+
+/**
  * Step 3: Agreements & Verification Schema
  */
 export const signUpStep3Schema = z.object({
@@ -108,9 +147,6 @@ export const signUpStep3Schema = z.object({
   }),
   acceptPrivacy: z.boolean().refine((val) => val === true, {
     message: "You must accept the Privacy Policy",
-  }),
-  acceptCdr: z.boolean().refine((val) => val === true, {
-    message: "You must consent to the CDR framework and Privacy Act",
   }),
   marketingConsent: z.boolean().default(false),
   otpCode: z
@@ -133,7 +169,6 @@ export interface SignUpState {
   confirmPassword: string;
   acceptTerms: boolean;
   acceptPrivacy: boolean;
-  acceptCdr: boolean;
   marketingConsent: boolean;
   otpCode: string;
 }
@@ -147,7 +182,6 @@ export const initialSignUpState: SignUpState = {
   confirmPassword: "",
   acceptTerms: false,
   acceptPrivacy: false,
-  acceptCdr: false,
   marketingConsent: false,
   otpCode: "",
 };
