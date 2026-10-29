@@ -1,9 +1,9 @@
+import { useSignIn, useSSO } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Lock, User } from "lucide-react-native";
 import { useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   useColorScheme,
@@ -19,13 +19,16 @@ import { AuthSocialButtons } from "@/components/auth/AuthSocialButtons";
 import { CheckboxField } from "@/components/auth/CheckboxField";
 import { GradientButton } from "@/components/auth/GradientButton";
 import { Text } from "@/components/ui/text";
-import { setMockSignedIn } from "@/lib/auth-mock";
+import { getClerkErrorMessage } from "@/lib/clerk-error";
 import { signInSchema, type SignInFormData } from "@/lib/auth-validation";
 
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isDark = useColorScheme() === "dark";
+
+  const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
+  const { startSSOFlow } = useSSO();
 
   const [formData, setFormData] = useState<SignInFormData>({
     identifier: "",
@@ -36,6 +39,7 @@ export default function SignInScreen() {
   const [errors, setErrors] = useState<
     Partial<Record<keyof SignInFormData, string>>
   >({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (
@@ -46,17 +50,43 @@ export default function SignInScreen() {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+    if (generalError) {
+      setGeneralError(null);
+    }
   };
 
   const handleSignIn = async () => {
     try {
       setErrors({});
+      setGeneralError(null);
       signInSchema.parse(formData);
 
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      await setMockSignedIn(true);
-      router.replace("/design");
+
+      const { error } = await signIn.password({
+        identifier: formData.identifier.trim(),
+        password: formData.password,
+      });
+
+      if (error) {
+        setGeneralError(
+          getClerkErrorMessage(
+            error,
+            "Invalid credentials. Please check your username/email and password.",
+          ),
+        );
+        return;
+      }
+
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: () => {
+            router.replace("/design");
+          },
+        });
+      } else {
+        setGeneralError(`Additional sign-in verification required: ${signIn.status}`);
+      }
     } catch (err) {
       if (err instanceof ZodError) {
         const fieldErrors: Partial<Record<keyof SignInFormData, string>> = {};
@@ -67,6 +97,8 @@ export default function SignInScreen() {
           }
         });
         setErrors(fieldErrors);
+      } else {
+        setGeneralError("An unexpected error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -74,19 +106,31 @@ export default function SignInScreen() {
   };
 
   const handleSocialAuth = async (provider: "Google" | "Apple") => {
-    setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await setMockSignedIn(true);
-    router.replace("/design");
+    try {
+      setGeneralError(null);
+      setLoading(true);
+      const strategy = provider === "Google" ? "oauth_google" : "oauth_apple";
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy,
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace("/design");
+      }
+    } catch (err: any) {
+      console.warn(`[SSO] ${provider} error:`, err);
+      setGeneralError(`Unable to complete ${provider} sign-in. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      "Reset Password",
-      "Password reset instructions will be sent to your registered email address.",
-      [{ text: "OK" }],
-    );
+    router.push("/(auth)/forgot-password");
   };
+
+  const isFetching = loading || fetchStatus === "fetching";
 
   return (
     <View
@@ -126,6 +170,14 @@ export default function SignInScreen() {
             subtitle="Sign in to continue to WealthFlow"
           />
 
+          {generalError && (
+            <View className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <Text className="text-red-500 text-xs font-jakarta text-center">
+                {generalError}
+              </Text>
+            </View>
+          )}
+
           {/* Form */}
           <View className="mt-1">
             <AuthInput
@@ -138,7 +190,7 @@ export default function SignInScreen() {
               }
               autoCapitalize="none"
               autoCorrect={false}
-              error={errors.identifier}
+              error={errors.identifier || clerkErrors.fields?.identifier?.message}
             />
 
             <AuthInput
@@ -151,7 +203,7 @@ export default function SignInScreen() {
                 <Lock size={18} color={isDark ? "#94A3B8" : "#64748B"} />
               }
               autoCapitalize="none"
-              error={errors.password}
+              error={errors.password || clerkErrors.fields?.password?.message}
             />
 
             {/* Options Row */}
@@ -181,7 +233,7 @@ export default function SignInScreen() {
             <GradientButton
               title="Sign In"
               size="lg"
-              loading={loading}
+              loading={isFetching}
               onPress={handleSignIn}
               className="w-full rounded-2xl"
             />
