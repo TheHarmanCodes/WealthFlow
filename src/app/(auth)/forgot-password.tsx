@@ -3,12 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Check, ChevronLeft, Lock, Mail } from "lucide-react-native";
 import { useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ZodError } from "zod";
 
@@ -44,6 +39,8 @@ export default function ForgotPasswordScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Stage 1: Request Reset Code
+  // This function handles the first step of the forgot password flow,
+  //  which is requesting a reset code to be sent to the user's email.
   const handleRequestCode = async () => {
     try {
       setFormErrors({});
@@ -57,28 +54,17 @@ export default function ForgotPasswordScreen() {
       });
 
       if (createError) {
-        setGeneralError(
-          getClerkErrorMessage(
-            createError,
-            "Unable to find an account with this email address.",
-          ),
-        );
-        return;
+        console.warn("[ForgotPassword] signIn.create error:", createError);
+      } else {
+        const { error: sendCodeError } =
+          await signIn.resetPasswordEmailCode.sendCode();
+
+        if (sendCodeError) {
+          console.warn("[ForgotPassword] sendCode error:", sendCodeError);
+        }
       }
 
-      const { error: sendCodeError } =
-        await signIn.resetPasswordEmailCode.sendCode();
-
-      if (sendCodeError) {
-        setGeneralError(
-          getClerkErrorMessage(
-            sendCodeError,
-            "Unable to send recovery code. Please check your email and try again.",
-          ),
-        );
-        return;
-      }
-
+      // Always proceed to stage 2 with generic wording to prevent account enumeration
       setStage(2);
     } catch (err) {
       if (err instanceof ZodError) {
@@ -91,7 +77,8 @@ export default function ForgotPasswordScreen() {
         });
         setFormErrors(newErrors);
       } else {
-        setGeneralError("An unexpected error occurred. Please try again.");
+        console.warn("[ForgotPassword] unexpected error:", err);
+        setStage(2);
       }
     } finally {
       setLoading(false);
@@ -99,20 +86,19 @@ export default function ForgotPasswordScreen() {
   };
 
   // Stage 2: Resend Code
-  const handleResendCode = async () => {
+  const handleResendCode = async (): Promise<boolean> => {
     try {
       setGeneralError(null);
+      // sending the code again, but we don't want to reveal if the email is valid or not
       const { error } = await signIn.resetPasswordEmailCode.sendCode();
       if (error) {
-        setGeneralError(
-          getClerkErrorMessage(
-            error,
-            "Could not resend code. Please wait a moment.",
-          ),
-        );
+        console.warn("[ForgotPassword] resendCode error:", error);
+        return false;
       }
-    } catch {
-      setGeneralError("Could not resend code. Please try again.");
+      return true;
+    } catch (err) {
+      console.warn("[ForgotPassword] resendCode error:", err);
+      return false;
     }
   };
 
@@ -229,7 +215,7 @@ export default function ForgotPasswordScreen() {
             subtitle={
               stage === 1
                 ? "Enter your registered email to receive a recovery code"
-                : `Enter the code sent to ${email} and your new password`
+                : `If an account exists for ${email}, a recovery code has been sent. Enter the code and your new password`
             }
           />
 
@@ -265,7 +251,7 @@ export default function ForgotPasswordScreen() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoCorrect={false}
-                error={formErrors.email || clerkErrors.fields?.identifier?.message}
+                error={formErrors.email}
               />
 
               <GradientButton
@@ -282,10 +268,7 @@ export default function ForgotPasswordScreen() {
                 onPress={() => router.back()}
                 className="flex-row items-center justify-center py-2 active:opacity-60"
               >
-                <ChevronLeft
-                  size={16}
-                  color={isDark ? "#94A3B8" : "#64748B"}
-                />
+                <ChevronLeft size={16} color={isDark ? "#94A3B8" : "#64748B"} />
                 <Text
                   style={{ color: isDark ? "#94A3B8" : "#64748B" }}
                   className="text-xs font-jakarta-medium ml-1"
@@ -337,7 +320,9 @@ export default function ForgotPasswordScreen() {
                   <Lock size={18} color={isDark ? "#94A3B8" : "#64748B"} />
                 }
                 autoCapitalize="none"
-                error={formErrors.password || clerkErrors.fields?.password?.message}
+                error={
+                  formErrors.password || clerkErrors.fields?.password?.message
+                }
               />
 
               {/* Real-time Password Rules Checklist (8+ chars) */}
@@ -360,11 +345,7 @@ export default function ForgotPasswordScreen() {
                           size={13}
                           strokeWidth={3}
                           color={
-                            isValid
-                              ? "#10B981"
-                              : isDark
-                                ? "#475569"
-                                : "#CBD5E1"
+                            isValid ? "#10B981" : isDark ? "#475569" : "#CBD5E1"
                           }
                           style={{ marginTop: 2 }}
                         />
@@ -423,10 +404,7 @@ export default function ForgotPasswordScreen() {
                 onPress={() => setStage(1)}
                 className="flex-row items-center justify-center py-2 active:opacity-60"
               >
-                <ChevronLeft
-                  size={16}
-                  color={isDark ? "#94A3B8" : "#64748B"}
-                />
+                <ChevronLeft size={16} color={isDark ? "#94A3B8" : "#64748B"} />
                 <Text
                   style={{ color: isDark ? "#94A3B8" : "#64748B" }}
                   className="text-xs font-jakarta-medium ml-1"

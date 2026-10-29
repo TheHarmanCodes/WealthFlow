@@ -10,6 +10,13 @@ export const signInSchema = z.object({
 });
 
 export type SignInFormData = z.infer<typeof signInSchema>;
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "One uppercase letter required")
+  .regex(/[a-z]/, "One lowercase letter required")
+  .regex(/[0-9]/, "One number required")
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, "One special character required");
 
 /**
  * Step 1: Account Details Schema
@@ -83,13 +90,7 @@ export const PASSWORD_RULES: PasswordRule[] = [
  */
 export const signUpStep2Schema = z
   .object({
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "One uppercase letter required")
-      .regex(/[a-z]/, "One lowercase letter required")
-      .regex(/[0-9]/, "One number required")
-      .regex(/[!@#$%^&*(),.?":{}|<>]/, "One special character required"),
+    password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirm password is required"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -122,13 +123,7 @@ export const forgotPasswordStep2Schema = z
       .string()
       .length(6, "Please enter all 6 digits of the recovery code")
       .regex(/^\d{6}$/, "Code must be 6 digits"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "One uppercase letter required")
-      .regex(/[a-z]/, "One lowercase letter required")
-      .regex(/[0-9]/, "One number required")
-      .regex(/[!@#$%^&*(),.?":{}|<>]/, "One special character required"),
+    password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirm password is required"),
   })
   .refine((data) => data.password === data.confirmPassword, {

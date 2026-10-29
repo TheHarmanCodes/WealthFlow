@@ -89,7 +89,7 @@ export default function VerifyScreen() {
     }
   };
 
-  const handleResend = async () => {
+  const handleResend = async (): Promise<boolean> => {
     try {
       setGeneralError(null);
       const { error } = await signUp.verifications.sendEmailCode();
@@ -100,9 +100,12 @@ export default function VerifyScreen() {
             "Could not resend code. Please wait a moment.",
           ),
         );
+        return false;
       }
+      return true;
     } catch {
       setGeneralError("Could not resend code. Please try again.");
+      return false;
     }
   };
 

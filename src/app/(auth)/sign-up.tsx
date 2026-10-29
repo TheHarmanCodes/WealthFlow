@@ -202,7 +202,7 @@ export default function SignUpScreen() {
   };
 
   // Resend code in Step 3
-  const handleResendCode = async () => {
+  const handleResendCode = async (): Promise<boolean> => {
     try {
       setGeneralError(null);
       const { error } = await signUp.verifications.sendEmailCode();
@@ -213,9 +213,12 @@ export default function SignUpScreen() {
             "Could not resend code. Please wait a moment.",
           ),
         );
+        return false;
       }
+      return true;
     } catch {
       setGeneralError("Could not resend code. Please try again.");
+      return false;
     }
   };
 

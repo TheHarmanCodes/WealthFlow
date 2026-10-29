@@ -14,7 +14,7 @@ interface OtpInputProps {
   code: string;
   onChangeCode: (code: string) => void;
   error?: string;
-  onResend?: () => void;
+  onResend?: () => boolean | Promise<boolean>;
   cooldownSeconds?: number;
   onFocus?: () => void;
 }
@@ -39,12 +39,14 @@ export function OtpInput({
     if (timeLeft <= 0) {
       return;
     }
+    // Set a timeout to decrement the timer every second
     const timer = setTimeout(() => {
       setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => clearTimeout(timer);
   }, [timeLeft]);
 
+  // format timer in MM:SS format
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -53,10 +55,13 @@ export function OtpInput({
       .padStart(2, "0")}`;
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return;
-    setTimeLeft(cooldownSeconds);
-    onResend?.();
+    const resendSucceeded = onResend ? await onResend() : true;
+    if (resendSucceeded) {
+      // Reset the timer to the cooldown period
+      setTimeLeft(cooldownSeconds);
+    }
   };
 
   const digits = Array.from({ length: 6 }, (_, i) => code[i] || "");
