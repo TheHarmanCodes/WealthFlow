@@ -38,6 +38,7 @@ export function AuthInput({
   const isDark = useColorScheme() === "dark";
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const isEditable = props.editable !== false;
 
   return (
     <View className={cn("w-full mb-3.5", containerClassName)}>
@@ -52,6 +53,7 @@ export function AuthInput({
 
       <View
         style={{
+          opacity: isEditable ? 1 : 0.55,
           backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
           borderColor: error
             ? "#EF4444"
@@ -95,6 +97,7 @@ export function AuthInput({
             accessibilityLabel={
               showPassword ? "Hide password" : "Show password"
             }
+            disabled={!isEditable}
             onPress={() => setShowPassword((prev) => !prev)}
             className="p-1 items-center justify-center active:opacity-60"
             hitSlop={8}

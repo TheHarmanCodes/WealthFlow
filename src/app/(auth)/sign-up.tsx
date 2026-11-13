@@ -1,6 +1,8 @@
 import { useSignUp, useSSO } from "@clerk/expo";
+import * as AuthSession from "expo-auth-session";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import {
   ArrowRight,
   Check,
@@ -242,10 +244,7 @@ export default function SignUpScreen() {
 
       if (error) {
         setGeneralError(
-          getClerkErrorMessage(
-            error,
-            "Invalid or expired verification code.",
-          ),
+          getClerkErrorMessage(error, "Invalid or expired verification code."),
         );
         return;
       }
@@ -257,7 +256,9 @@ export default function SignUpScreen() {
           },
         });
       } else {
-        setGeneralError(`Verification status: ${signUp.status}. Additional steps may be required.`);
+        setGeneralError(
+          `Verification status: ${signUp.status}. Additional steps may be required.`,
+        );
       }
     } catch (err) {
       if (err instanceof ZodError) {
@@ -277,22 +278,64 @@ export default function SignUpScreen() {
     }
   };
 
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+
   const handleSocialAuth = async (provider: "Google" | "Apple") => {
     try {
       setGeneralError(null);
       setLoading(true);
       const strategy = provider === "Google" ? "oauth_google" : "oauth_apple";
-      const { createdSessionId, setActive } = await startSSOFlow({
+      const redirectUrl = AuthSession.makeRedirectUri({ path: "sso-callback" });
+
+      const {
+        createdSessionId,
+        setActive,
+        signUp: ssoSignUp,
+      } = await startSSOFlow({
         strategy,
+        redirectUrl,
       });
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.replace("/design");
+        return;
+      }
+
+      // If requirements like username are missing after social sign-up
+      if (ssoSignUp?.status === "missing_requirements") {
+        if (ssoSignUp.missingFields?.includes("username")) {
+          const emailPrefix =
+            (ssoSignUp.emailAddress || formData.email || "user")
+              .split("@")[0]
+              .replace(/[^a-zA-Z0-9_]/g, "")
+              .slice(0, 12) || "user";
+          const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+          const generatedUsername = `${emailPrefix}_${randomSuffix}`;
+          const updatedSignUp = await ssoSignUp.update({
+            username: generatedUsername,
+          });
+          if (
+            (updatedSignUp.status as string) === "complete" &&
+            updatedSignUp.createdSessionId &&
+            setActive
+          ) {
+            await setActive({ session: updatedSignUp.createdSessionId });
+            router.replace("/design");
+            return;
+          }
+        }
       }
     } catch (err: any) {
       console.warn(`[SSO] ${provider} error:`, err);
-      setGeneralError(`Unable to complete ${provider} sign-up. Please try again.`);
+      setGeneralError(
+        `Unable to complete ${provider} sign-up. Please try again.`,
+      );
     } finally {
       setLoading(false);
     }
@@ -384,19 +427,23 @@ export default function SignUpScreen() {
                 <View className="flex-1">
                   <AuthInput
                     label="First Name"
-                    placeholder="John"
+                    placeholder="Avneet"
                     value={formData.firstName}
                     onChangeText={(val) => updateField("firstName", val)}
-                    error={errors.firstName || clerkErrors.fields?.firstName?.message}
+                    error={
+                      errors.firstName || clerkErrors.fields?.firstName?.message
+                    }
                   />
                 </View>
                 <View className="flex-1">
                   <AuthInput
                     label="Last Name"
-                    placeholder="Doe"
+                    placeholder="Kaur"
                     value={formData.lastName}
                     onChangeText={(val) => updateField("lastName", val)}
-                    error={errors.lastName || clerkErrors.fields?.lastName?.message}
+                    error={
+                      errors.lastName || clerkErrors.fields?.lastName?.message
+                    }
                   />
                 </View>
               </View>
@@ -428,7 +475,9 @@ export default function SignUpScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                error={errors.email || clerkErrors.fields?.emailAddress?.message}
+                error={
+                  errors.email || clerkErrors.fields?.emailAddress?.message
+                }
               />
 
               {/* Social Login Buttons */}

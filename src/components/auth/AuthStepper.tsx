@@ -14,7 +14,7 @@ const STEPS = [
   { step: 3, label: "Agreement" },
 ] as const;
 
-const STEP_GRADIENT = ["#ff6f3a", "#ff9d01", "#fac971"] as const;
+const STEP_GRADIENT = ["#1e1c80", "#554bc9", "#9c52d6"] as const;
 
 export function AuthStepper({ currentStep }: AuthStepperProps) {
   const isDark = useColorScheme() === "dark";

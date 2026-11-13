@@ -1,6 +1,6 @@
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/cn";
-import { Clock } from "lucide-react-native";
+import { Check, Clock } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
@@ -17,6 +17,8 @@ interface OtpInputProps {
   onResend?: () => boolean | Promise<boolean>;
   cooldownSeconds?: number;
   onFocus?: () => void;
+  editable?: boolean;
+  isVerified?: boolean;
 }
 
 export function OtpInput({
@@ -26,17 +28,19 @@ export function OtpInput({
   onResend,
   cooldownSeconds = 60,
   onFocus,
+  editable = true,
+  isVerified = false,
 }: OtpInputProps) {
   const isDark = useColorScheme() === "dark";
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [timeLeft, setTimeLeft] = useState(cooldownSeconds);
 
   // Derive resend eligibility from timer state to avoid cascading effect renders
-  const canResend = timeLeft <= 0;
+  const canResend = timeLeft <= 0 && editable;
 
   // Countdown timer for resend cooldown
   useEffect(() => {
-    if (timeLeft <= 0) {
+    if (timeLeft <= 0 || !editable || isVerified) {
       return;
     }
     // Set a timeout to decrement the timer every second
@@ -44,7 +48,7 @@ export function OtpInput({
       setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [timeLeft]);
+  }, [timeLeft, editable, isVerified]);
 
   // format timer in MM:SS format
   const formatTimer = (seconds: number) => {
@@ -56,7 +60,7 @@ export function OtpInput({
   };
 
   const handleResend = async () => {
-    if (!canResend) return;
+    if (!canResend || !editable || isVerified) return;
     const resendSucceeded = onResend ? await onResend() : true;
     if (resendSucceeded) {
       // Reset the timer to the cooldown period
@@ -100,18 +104,30 @@ export function OtpInput({
   return (
     <View className="w-full my-3">
       <View className="flex-row items-center justify-between mb-3.5">
-        <Text
-          style={{ color: isDark ? "#94A3B8" : "#64748B" }}
-          className="text-xs font-jakarta-bold tracking-wider uppercase"
-        >
-          Enter 6-Digit Security Code
-        </Text>
-        <Text
-          style={{ color: isDark ? "#64748B" : "#94A3B8" }}
-          className="text-[11px] font-jakarta"
-        >
-          Valid for 10 min
-        </Text>
+        <View className="flex-row items-center gap-2">
+          <Text
+            style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+            className="text-xs font-jakarta-bold tracking-wider uppercase"
+          >
+            Enter 6-Digit Security Code
+          </Text>
+          {isVerified && (
+            <View className="flex-row items-center px-1.5 py-0.5 rounded-full bg-emerald-500/15">
+              <Check size={11} color="#10B981" strokeWidth={3} />
+              <Text className="text-[10px] font-jakarta-bold text-emerald-500 ml-1">
+                Verified
+              </Text>
+            </View>
+          )}
+        </View>
+        {!isVerified && (
+          <Text
+            style={{ color: isDark ? "#64748B" : "#94A3B8" }}
+            className="text-[11px] font-jakarta"
+          >
+            Valid for 10 min
+          </Text>
+        )}
       </View>
 
       {/* 6 Digit Inputs */}
@@ -119,7 +135,8 @@ export function OtpInput({
         {Array.from({ length: 6 }).map((_, index) => {
           const digit = digits[index];
           const isFocused =
-            code.length === index || (code.length === 6 && index === 5);
+            editable &&
+            (code.length === index || (code.length === 6 && index === 5));
 
           return (
             <TextInput
@@ -128,6 +145,7 @@ export function OtpInput({
                 inputRefs.current[index] = ref;
               }}
               value={digit}
+              editable={editable}
               onChangeText={(val) => handleDigitChange(val, index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               onFocus={() => {
@@ -139,16 +157,19 @@ export function OtpInput({
               maxLength={index === 0 ? 6 : 1}
               selectTextOnFocus
               style={{
+                opacity: editable ? 1 : 0.65,
                 backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
-                borderColor: error
-                  ? "#EF4444"
-                  : isFocused
-                    ? isDark
-                      ? "#38BDF8"
-                      : "#0A84FF"
-                    : isDark
-                      ? "#1E293B"
-                      : "#CBD5E1",
+                borderColor: isVerified
+                  ? "#10B981"
+                  : error
+                    ? "#EF4444"
+                    : isFocused
+                      ? isDark
+                        ? "#38BDF8"
+                        : "#0A84FF"
+                      : isDark
+                        ? "#1E293B"
+                        : "#CBD5E1",
                 color: isDark ? "#FFFFFF" : "#0B0B1A",
               }}
               className={cn(
@@ -168,47 +189,49 @@ export function OtpInput({
         </Text>
       )}
 
-      {/* Timer & Resend Row */}
-      <View className="flex-row items-center justify-between mt-0.5 px-1">
-        <View className="flex-row items-center gap-1.5">
-          <Clock size={14} color={isDark ? "#94A3B8" : "#64748B"} />
-          <Text
-            style={{ color: isDark ? "#94A3B8" : "#64748B" }}
-            className="text-xs font-jakarta"
-          >
-            {canResend ? (
-              "Didn't receive code?"
-            ) : (
-              <>
-                Resend available in:{" "}
-                <Text
-                  style={{ color: "#38BDF8" }}
-                  className="font-jakarta-bold text-sm"
-                >
-                  {formatTimer(timeLeft)}
-                </Text>
-              </>
-            )}
-          </Text>
-        </View>
+      {/* Timer & Resend Row (Hidden when verified) */}
+      {!isVerified && (
+        <View className="flex-row items-center justify-between mt-0.5 px-1">
+          <View className="flex-row items-center gap-1.5">
+            <Clock size={14} color={isDark ? "#94A3B8" : "#64748B"} />
+            <Text
+              style={{ color: isDark ? "#94A3B8" : "#64748B" }}
+              className="text-xs font-jakarta"
+            >
+              {canResend ? (
+                "Didn't receive code?"
+              ) : (
+                <>
+                  Resend available in:{" "}
+                  <Text
+                    style={{ color: "#38BDF8" }}
+                    className="font-jakarta-bold text-sm"
+                  >
+                    {formatTimer(timeLeft)}
+                  </Text>
+                </>
+              )}
+            </Text>
+          </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Resend security code"
-          onPress={handleResend}
-          disabled={!canResend}
-          className="active:opacity-60"
-        >
-          <Text
-            style={{
-              color: canResend ? "#38BDF8" : isDark ? "#475569" : "#94A3B8",
-            }}
-            className="text-xs font-jakarta-semibold"
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Resend security code"
+            onPress={handleResend}
+            disabled={!canResend}
+            className="active:opacity-60"
           >
-            Resend Code
-          </Text>
-        </Pressable>
-      </View>
+            <Text
+              style={{
+                color: canResend ? "#38BDF8" : isDark ? "#475569" : "#94A3B8",
+              }}
+              className="text-xs font-jakarta-semibold"
+            >
+              Resend Code
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

@@ -28,6 +28,7 @@ export default function ForgotPasswordScreen() {
   const { signIn, errors: clerkErrors, fetchStatus } = useSignIn();
 
   const [stage, setStage] = useState<1 | 2>(1);
+  const [otpVerified, setOtpVerified] = useState(false);
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [password, setPassword] = useState("");
@@ -65,6 +66,7 @@ export default function ForgotPasswordScreen() {
       }
 
       // Always proceed to stage 2 with generic wording to prevent account enumeration
+      setOtpVerified(false);
       setStage(2);
     } catch (err) {
       if (err instanceof ZodError) {
@@ -78,6 +80,7 @@ export default function ForgotPasswordScreen() {
         setFormErrors(newErrors);
       } else {
         console.warn("[ForgotPassword] unexpected error:", err);
+        setOtpVerified(false);
         setStage(2);
       }
     } finally {
@@ -102,23 +105,23 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  // Stage 2: Verify Code and Submit New Password
-  const handleResetPassword = async () => {
+  // Stage 2: Step A - Verify OTP Code first
+  const handleVerifyCode = async () => {
     try {
       setFormErrors({});
       setGeneralError(null);
-      forgotPasswordStep2Schema.parse({
-        otpCode,
-        password,
-        confirmPassword,
-      });
+
+      const trimmedCode = otpCode.trim();
+      if (trimmedCode.length !== 6) {
+        setFormErrors({ otpCode: "Please enter the complete 6-digit code." });
+        return;
+      }
 
       setLoading(true);
 
-      // Step A: Verify Code
       const { error: verifyError } =
         await signIn.resetPasswordEmailCode.verifyCode({
-          code: otpCode,
+          code: trimmedCode,
         });
 
       if (verifyError) {
@@ -131,7 +134,32 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // Step B: Submit New Password
+      // Code successfully verified: unlock new password fields
+      setOtpVerified(true);
+      setFormErrors({});
+      setGeneralError(null);
+    } catch (err) {
+      console.warn("[ForgotPassword] verifyCode error:", err);
+      setGeneralError("Verification failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Stage 2: Step B - Submit New Password after OTP is verified
+  const handleResetPassword = async () => {
+    try {
+      setFormErrors({});
+      setGeneralError(null);
+      forgotPasswordStep2Schema.parse({
+        otpCode,
+        password,
+        confirmPassword,
+      });
+
+      setLoading(true);
+
+      // Submit New Password
       const { error: submitError } =
         await signIn.resetPasswordEmailCode.submitPassword({
           password,
@@ -211,11 +239,19 @@ export default function ForgotPasswordScreen() {
         >
           {/* Header */}
           <AuthHeader
-            title={stage === 1 ? "Reset Password" : "Set New Password"}
+            title={
+              stage === 1
+                ? "Reset Password"
+                : !otpVerified
+                  ? "Verify Security Code"
+                  : "Set New Password"
+            }
             subtitle={
               stage === 1
                 ? "Enter your registered email to receive a recovery code"
-                : `If an account exists for ${email}, a recovery code has been sent. Enter the code and your new password`
+                : !otpVerified
+                  ? `If an account exists for ${email}, a recovery code has been sent. Enter the code to verify your request`
+                  : "Code verified successfully! Enter your new password below"
             }
           />
 
@@ -279,7 +315,7 @@ export default function ForgotPasswordScreen() {
             </View>
           )}
 
-          {/* STAGE 2: OTP & New Password */}
+          {/* STAGE 2: OTP & New Password (Staged verification) */}
           {stage === 2 && (
             <View className="mt-1">
               <OtpInput
@@ -298,12 +334,15 @@ export default function ForgotPasswordScreen() {
                 error={formErrors.otpCode || clerkErrors.fields?.code?.message}
                 onResend={handleResendCode}
                 cooldownSeconds={60}
+                editable={!otpVerified}
+                isVerified={otpVerified}
               />
 
               <AuthInput
                 label="New Password"
                 placeholder="Enter new password"
                 value={password}
+                editable={otpVerified}
                 onChangeText={(val) => {
                   setPassword(val);
                   if (formErrors.password) {
@@ -326,7 +365,10 @@ export default function ForgotPasswordScreen() {
               />
 
               {/* Real-time Password Rules Checklist (8+ chars) */}
-              <View className="mb-3.5 px-0.5">
+              <View
+                style={{ opacity: otpVerified ? 1 : 0.45 }}
+                className="mb-3.5 px-0.5"
+              >
                 <Text
                   style={{ color: isDark ? "#94A3B8" : "#64748B" }}
                   className="text-[11px] font-jakarta-medium mb-1.5"
@@ -371,6 +413,7 @@ export default function ForgotPasswordScreen() {
                 label="Confirm Password"
                 placeholder="Re-enter new password"
                 value={confirmPassword}
+                editable={otpVerified}
                 onChangeText={(val) => {
                   setConfirmPassword(val);
                   if (formErrors.confirmPassword) {
@@ -391,17 +434,25 @@ export default function ForgotPasswordScreen() {
               />
 
               <GradientButton
-                title="Reset Password & Sign In"
+                title={!otpVerified ? "Verify Code" : "Reset Password & Sign In"}
                 size="lg"
                 loading={isFetching}
-                onPress={handleResetPassword}
+                onPress={!otpVerified ? handleVerifyCode : handleResetPassword}
                 className="w-full rounded-2xl mt-2 mb-3"
               />
 
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Back to step 1"
-                onPress={() => setStage(1)}
+                onPress={() => {
+                  setStage(1);
+                  setOtpVerified(false);
+                  setOtpCode("");
+                  setPassword("");
+                  setConfirmPassword("");
+                  setFormErrors({});
+                  setGeneralError(null);
+                }}
                 className="flex-row items-center justify-center py-2 active:opacity-60"
               >
                 <ChevronLeft size={16} color={isDark ? "#94A3B8" : "#64748B"} />
