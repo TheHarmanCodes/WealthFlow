@@ -10,8 +10,7 @@ interface AuthHeaderProps {
   showLogo?: boolean;
 }
 
-const WEALTHFLOW_LOGO_URL =
-  "https://ik.imagekit.io/tvaz27dnm/wealthflow_logo.png";
+const WEALTHFLOW_LOGO = require("@/assets/images/wealthflow_logo.png");
 
 export function AuthHeader({
   title,
@@ -26,7 +25,7 @@ export function AuthHeader({
         <View className="flex-row items-center justify-center gap-2.5 mb-4">
           <View className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl items-center justify-center">
             <Image
-              source={{ uri: WEALTHFLOW_LOGO_URL }}
+              source={WEALTHFLOW_LOGO}
               style={{ width: 40, height: 40 }}
               contentFit="contain"
               transition={200}
@@ -53,7 +52,7 @@ export function AuthHeader({
                 }
               >
                 <LinearGradient
-                  colors={["#ff6f3a", "#ff9d01", "#fac971"]}
+                  colors={["#1e1c80", "#554bc9", "#9c52d6"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >

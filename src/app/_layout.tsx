@@ -3,9 +3,12 @@ import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect } from "react";
 import { useColorScheme } from "react-native";
 import "../../global.css";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
@@ -53,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="design" />
+          <Stack.Screen name="sso-callback" />
         </Stack>
       </ClerkLoaded>
     </ClerkProvider>

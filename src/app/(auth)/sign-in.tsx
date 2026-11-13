@@ -1,8 +1,10 @@
 import { useSignIn, useSSO } from "@clerk/expo";
+import * as AuthSession from "expo-auth-session";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import { Lock, User } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -105,18 +107,52 @@ export default function SignInScreen() {
     }
   };
 
+  useEffect(() => {
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+
   const handleSocialAuth = async (provider: "Google" | "Apple") => {
     try {
       setGeneralError(null);
       setLoading(true);
       const strategy = provider === "Google" ? "oauth_google" : "oauth_apple";
-      const { createdSessionId, setActive } = await startSSOFlow({
+      const redirectUrl = AuthSession.makeRedirectUri({ path: "sso-callback" });
+
+      const { createdSessionId, setActive, signUp } = await startSSOFlow({
         strategy,
+        redirectUrl,
       });
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.replace("/design");
+        return;
+      }
+
+      // If requirements like username are missing after social sign-up
+      if (signUp?.status === "missing_requirements") {
+        if (signUp.missingFields?.includes("username")) {
+          const emailPrefix =
+            (signUp.emailAddress || formData.identifier || "user")
+              .split("@")[0]
+              .replace(/[^a-zA-Z0-9_]/g, "")
+              .slice(0, 12) || "user";
+          const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+          const generatedUsername = `${emailPrefix}_${randomSuffix}`;
+          const updatedSignUp = await signUp.update({ username: generatedUsername });
+          if (
+            (updatedSignUp.status as string) === "complete" &&
+            updatedSignUp.createdSessionId &&
+            setActive
+          ) {
+            await setActive({ session: updatedSignUp.createdSessionId });
+            router.replace("/design");
+            return;
+          }
+        }
       }
     } catch (err: any) {
       console.warn(`[SSO] ${provider} error:`, err);
