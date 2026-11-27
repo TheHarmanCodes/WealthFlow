@@ -179,7 +179,7 @@ export default function ForgotPasswordScreen() {
       if (signIn.status === "complete") {
         await signIn.finalize({
           navigate: () => {
-            router.replace("/design");
+            router.replace("/(tabs)");
           },
         });
       } else {

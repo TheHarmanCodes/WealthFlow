@@ -134,7 +134,7 @@ export default function VerifyScreen() {
       if (signUp.status === "complete") {
         await signUp.finalize({
           navigate: () => {
-            router.replace("/design");
+            router.replace("/(tabs)");
           },
         });
       } else {
