@@ -26,8 +26,8 @@ import { cn } from "@/lib/cn";
 const RIPPLE_SIZE = 95; // px — 54px radius extends past pill end-caps; clipped by pill overflow-hidden
 const RIPPLE_SCALE_FROM = 0.75; // starting scale on press-in
 const FADE_IN_OPACITY_MS = 100; // opacity 0 → 1
-const SCALE_IN_MS = 145; // scale 0.75 → 1
-const FADE_OUT_MS = 250; // opacity 1 → 0 (after enter completes)
+const SCALE_IN_MS = 175; // scale 0.75 → 1
+const FADE_OUT_MS = 300; // opacity 1 → 0 (after enter completes)
 
 // Ripple colours
 const RIPPLE_GREY_LIGHT = "rgba(0, 0, 0, 0.08)";
