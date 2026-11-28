@@ -252,7 +252,7 @@ export default function SignUpScreen() {
       if (signUp.status === "complete") {
         await signUp.finalize({
           navigate: () => {
-            router.replace("/design");
+            router.replace("/(tabs)");
           },
         });
       } else {
@@ -303,7 +303,7 @@ export default function SignUpScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace("/design");
+        router.replace("/(tabs)");
         return;
       }
 
@@ -326,7 +326,7 @@ export default function SignUpScreen() {
             setActive
           ) {
             await setActive({ session: updatedSignUp.createdSessionId });
-            router.replace("/design");
+            router.replace("/(tabs)");
             return;
           }
         }

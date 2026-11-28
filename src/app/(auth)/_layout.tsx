@@ -7,7 +7,7 @@ export default function AuthLayout() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (isLoaded && isSignedIn) {
-    return <Redirect href="/design" />;
+    return <Redirect href="/(tabs)" />;
   }
 
   return (

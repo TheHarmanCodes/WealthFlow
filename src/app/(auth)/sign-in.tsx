@@ -83,7 +83,7 @@ export default function SignInScreen() {
       if (signIn.status === "complete") {
         await signIn.finalize({
           navigate: () => {
-            router.replace("/design");
+            router.replace("/(tabs)");
           },
         });
       } else {
@@ -128,7 +128,7 @@ export default function SignInScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace("/design");
+        router.replace("/(tabs)");
         return;
       }
 
@@ -149,7 +149,7 @@ export default function SignInScreen() {
             setActive
           ) {
             await setActive({ session: updatedSignUp.createdSessionId });
-            router.replace("/design");
+            router.replace("/(tabs)");
             return;
           }
         }

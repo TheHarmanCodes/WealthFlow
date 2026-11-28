@@ -25,7 +25,7 @@ export default function Index() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/design" />;
+    return <Redirect href="/(tabs)" />;
   }
 
   if (seenOnboarding) {
