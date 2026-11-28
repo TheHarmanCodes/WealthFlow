@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react-native";
 import Animated, {
   Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -24,11 +25,11 @@ import Animated, {
 } from "react-native-reanimated";
 
 // ─── Navbar-matched ripple & glass constants ──────────────────────────────────
-const BUTTON_RIPPLE_SIZE = 56;
-const RIPPLE_SCALE_FROM = 0.75;
-const FADE_IN_OPACITY_MS = 75;
-const SCALE_IN_MS = 105;
-const FADE_OUT_MS = 190;
+const BUTTON_RIPPLE_SIZE = 54;
+const RIPPLE_SCALE_FROM = 0.55;
+const FADE_IN_OPACITY_MS = 100;
+const SCALE_IN_MS = 250;
+const FADE_OUT_MS = 350;
 
 const RIPPLE_GREY_LIGHT = "rgba(0, 0, 0, 0.08)";
 const RIPPLE_GREY_DARK = "rgba(255, 255, 255, 0.12)";
@@ -139,6 +140,74 @@ export function DynamicScreenHeader({
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuTop, setMenuTop] = useState(Math.max(insets.top, 16) + 64);
   const buttonRef = useRef<View>(null);
+  const isClosing = useRef(false);
+  const pendingAfterCloseRef = useRef<(() => void) | undefined>(undefined);
+
+  // Origin-anchored popover animation state (expands from / collapses to the 40×40 ring)
+  const menuScale = useSharedValue(0.15);
+  const menuOpacity = useSharedValue(0);
+  const menuWidth = useSharedValue(200);
+  const menuHeight = useSharedValue(148);
+
+  useEffect(() => {
+    if (!menuVisible) return;
+    isClosing.current = false;
+    menuScale.set(0.15);
+    menuOpacity.set(0);
+    menuScale.set(
+      withTiming(1, { duration: 120, easing: Easing.out(Easing.cubic) }),
+    );
+    menuOpacity.set(
+      withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) }),
+    );
+  }, [menuVisible, menuScale, menuOpacity]);
+
+  const finishClose = useCallback(() => {
+    const afterClose = pendingAfterCloseRef.current;
+    pendingAfterCloseRef.current = undefined;
+    isClosing.current = false;
+    setMenuVisible(false);
+    afterClose?.();
+  }, []);
+
+  const closeMenu = useCallback(
+    (onAfterClose?: () => void) => {
+      if (isClosing.current || !menuVisible) return;
+      isClosing.current = true;
+      pendingAfterCloseRef.current = onAfterClose;
+
+      menuOpacity.set(
+        withTiming(0, { duration: 130, easing: Easing.in(Easing.quad) }),
+      );
+      menuScale.set(
+        withTiming(
+          0.15,
+          { duration: 160, easing: Easing.in(Easing.cubic) },
+          (finished) => {
+            if (finished) {
+              runOnJS(finishClose)();
+            }
+          },
+        ),
+      );
+    },
+    [finishClose, menuOpacity, menuScale, menuVisible],
+  );
+
+  const menuAnimatedStyle = useAnimatedStyle(() => {
+    const originOffsetX = menuWidth.get() / 2 - 20;
+    const originOffsetY = -menuHeight.get() / 2;
+    return {
+      opacity: menuOpacity.get(),
+      transform: [
+        { translateX: originOffsetX },
+        { translateY: originOffsetY },
+        { scale: menuScale.get() },
+        { translateX: -originOffsetX },
+        { translateY: -originOffsetY },
+      ],
+    };
+  });
 
   // Navbar-matched ease-out circular touch ripple on the 40×40 button
   const { handlePressIn, handlePressOut, rippleStyle } = useGlassRipple(isDark);
@@ -174,40 +243,44 @@ export function DynamicScreenHeader({
         <View
           ref={buttonRef}
           collapsable={false}
-          className="w-10 h-10 rounded-full"
+          className="w-10 h-10 rounded-full items-center justify-center"
         >
+          {/* Unclipped circular touch ripple — blooms outside the 40×40 ring */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              {
+                position: "absolute",
+                width: BUTTON_RIPPLE_SIZE,
+                height: BUTTON_RIPPLE_SIZE,
+                borderRadius: 9999,
+              },
+              rippleStyle,
+            ]}
+          />
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open options menu"
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             onPress={handleButtonPress}
-            className="flex-1 rounded-full overflow-hidden items-center justify-center"
+            className="w-full h-full rounded-full items-center justify-center"
           >
-            {/* Layer 1 — frosted glass */}
-            <BlurView
-              intensity={80}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-            {/* Layer 2 — colour tint (#F6F6F6 light / #202020 dark) */}
-            <View className="absolute inset-0 bg-[#F6F6F6]/[0.82] dark:bg-[#202020]/[0.82]" />
-
-            {/* Layer 3 — circular touch ripple */}
-            <Animated.View
+            {/* Clipped 40×40 frosted glass circle */}
+            <View
               pointerEvents="none"
-              style={[
-                {
-                  position: "absolute",
-                  width: BUTTON_RIPPLE_SIZE,
-                  height: BUTTON_RIPPLE_SIZE,
-                  borderRadius: 9999,
-                },
-                rippleStyle,
-              ]}
-            />
+              className="absolute inset-0 rounded-full overflow-hidden"
+            >
+              <BlurView
+                intensity={80}
+                tint={isDark ? "dark" : "light"}
+                style={StyleSheet.absoluteFill}
+              />
+              <View className="absolute inset-0 bg-[#F6F6F6]/[0.82] dark:bg-[#202020]/[0.82]" />
+            </View>
 
-            {/* Layer 4 — three-dots icon */}
+            {/* Three-dots icon */}
             <MoreVertical
               size={18}
               color={isDark ? "#FFFFFF" : "#000000"}
@@ -215,7 +288,7 @@ export function DynamicScreenHeader({
             />
           </Pressable>
 
-          {/* Hairline border overlaid so Android never inset-clips the ripple */}
+          {/* Hairline border ring */}
           <View
             pointerEvents="none"
             className="absolute inset-0 rounded-full border border-black/[0.08] dark:border-white/[0.12]"
@@ -223,52 +296,58 @@ export function DynamicScreenHeader({
         </View>
       </View>
 
-      {/* Transparent-backdrop popover menu*/}
+      {/* Transparent-backdrop popover menu */}
       <Modal
         visible={menuVisible}
         transparent
         statusBarTranslucent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
+        animationType="none"
+        onRequestClose={() => closeMenu()}
       >
-        <Pressable className="flex-1" onPress={() => setMenuVisible(false)}>
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
+        <Pressable className="flex-1" onPress={() => closeMenu()}>
+          <Animated.View
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              if (width > 0) menuWidth.set(width);
+              if (height > 0) menuHeight.set(height);
+            }}
             className="absolute right-5 w-[200px] rounded-[24px]"
-            style={{ top: menuTop }}
+            style={[{ top: menuTop }, menuAnimatedStyle]}
           >
-            {/* Full-bleed clipping container (borderless so Android clips flush) */}
-            <View className="rounded-[24px] overflow-hidden py-1.5">
-              {/* Layer 1 — frosted glass */}
-              <BlurView
-                intensity={80}
-                tint={isDark ? "dark" : "light"}
-                style={StyleSheet.absoluteFill}
-              />
-              {/* Layer 2 — colour tint (#F6F6F6 light / #202020 dark) */}
-              <View className="absolute inset-0 bg-[#F6F6F6]/[0.82] dark:bg-[#202020]/[0.82]" />
-
-              {/* Layer 3 — menu options */}
-              {MENU_OPTIONS.map(({ id, label, Icon }) => (
-                <MenuOptionRow
-                  key={id}
-                  label={label}
-                  Icon={Icon}
-                  isDark={isDark}
-                  onPress={() => {
-                    setMenuVisible(false);
-                    onSelectOption?.(id);
-                  }}
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              className="rounded-[24px]"
+            >
+              {/* Full-bleed clipping container (borderless so Android clips flush) */}
+              <View className="rounded-[24px] overflow-hidden py-1.5">
+                {/* Layer 1 — frosted glass */}
+                <BlurView
+                  intensity={80}
+                  tint={isDark ? "dark" : "light"}
+                  style={StyleSheet.absoluteFill}
                 />
-              ))}
-            </View>
+                {/* Layer 2 — colour tint (#F6F6F6 light / #202020 dark) */}
+                <View className="absolute inset-0 bg-[#F6F6F6]/[0.82] dark:bg-[#202020]/[0.82]" />
 
-            {/* Hairline border overlaid */}
-            <View
-              pointerEvents="none"
-              className="absolute inset-0 rounded-[24px] border border-black/[0.08] dark:border-white/[0.12]"
-            />
-          </Pressable>
+                {/* Layer 3 — menu options */}
+                {MENU_OPTIONS.map(({ id, label, Icon }) => (
+                  <MenuOptionRow
+                    key={id}
+                    label={label}
+                    Icon={Icon}
+                    isDark={isDark}
+                    onPress={() => closeMenu(() => onSelectOption?.(id))}
+                  />
+                ))}
+              </View>
+
+              {/* Hairline border overlaid */}
+              <View
+                pointerEvents="none"
+                className="absolute inset-0 rounded-[24px] border border-black/[0.08] dark:border-white/[0.12]"
+              />
+            </Pressable>
+          </Animated.View>
         </Pressable>
       </Modal>
     </>
