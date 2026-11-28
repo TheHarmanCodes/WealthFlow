@@ -34,7 +34,15 @@
         }
       ],
       "expo-secure-store",
-      "@clerk/expo"
+      "@clerk/expo",
+      "expo-localization",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow WealthFlow to use Face ID to secure your financial data."
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
