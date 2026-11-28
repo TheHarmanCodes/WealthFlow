@@ -114,6 +114,7 @@ function MenuOptionRow({ label, Icon, isDark, onPress }: MenuOptionRowProps) {
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      accessibilityRole="button"
       className="relative flex-row items-center gap-3 px-4 py-3.5 overflow-hidden"
     >
       <Animated.View
